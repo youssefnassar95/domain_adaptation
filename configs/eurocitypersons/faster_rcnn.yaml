@@ -1,0 +1,83 @@
+name: faster_rcnn_eurocitypersons
+device: cpu
+gpu: 0
+seed: 1
+
+model:
+  module: models.faster_rcnn
+  name: FasterRCNN
+  args:
+    backbone: resnet50_fpn 
+    num_classes: 2
+    min_size: 1331
+    max_size: 2662
+    transformations: !!python/tuple
+      - module: albumentations
+        name: ToFloat
+        args:
+          max_value: null
+          p: 1
+
+data_loader:
+  module: data.dataloaders
+  name: EuroCityPersonsDataLoader
+  args:
+    root_dir: ./data
+    subset: annotated-pedestrians
+    batch_size: 8
+    different_size_target: True # not all images have equal number of objects
+    validation_batch_size: 8
+    num_workers: 4
+    pin_memory: true
+    group_pedestrian_classes: true
+    train_transform:
+      # min_area: 1024
+      min_visibility: 0.1
+      transformations: !!python/tuple
+        - module: albumentations
+          name: HorizontalFlip
+          args:
+            p: 0.5
+
+optimizer:
+  min_lr_rate: 1e-8
+  module: torch.optim
+  name: Adam
+  args:
+#    lr: 0.001
+#    momentum: 0.9
+#    weight_decay: 0.0005
+
+
+trainer:
+  module: trainer
+  name: BaseTrainingProcedure
+  args:
+    bm_metric: MR
+    iou_thresh: 0.5
+    save_after_epoch: 10
+  epochs: 20
+  save_dir: ./results/saved/
+  logging:
+    logged_train_stats:
+      !!python/tuple [
+        "loss",
+        "loss_objectness",
+        "loss_rpn_box_reg",
+        "loss_classifier",
+        "loss_box_reg",
+      ]
+    logged_val_stats:
+      !!python/tuple [
+        "MR_reasonable",
+        "MR_small",
+        "MR_occl",
+        "MR_all",
+        "fn_reasonable",
+        "n_targets_reasonable",
+        "fppi_reasonable",
+        "fp_reasonable",
+        "n_imgs",
+      ]
+    tensorboard_dir: ./results/logging/tensorboard/
+    logging_dir: ./results/logging/raw/
